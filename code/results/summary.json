@@ -1,0 +1,108 @@
+{
+  "n_trajectories": 5625,
+  "models": [
+    "deepseek",
+    "llama1b",
+    "llama70b",
+    "llama8b",
+    "qwen7b"
+  ],
+  "families": [
+    "cipher",
+    "ledger",
+    "refchain"
+  ],
+  "horizons": [
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "regimes": [
+    "compressed",
+    "natural",
+    "padded"
+  ],
+  "best_shape_counts": {
+    "geometric": 10,
+    "threshold": 5
+  },
+  "direct_perstep_r": {
+    "min": 0.0026,
+    "median": 0.7445,
+    "max": 1.0
+  },
+  "geometric_r_summary": {
+    "min": 0.4253,
+    "median": 0.9939,
+    "max": 1.0
+  },
+  "disentangle": {
+    "per_regime_logit_slope_per_doubling": {
+      "natural": -0.3713,
+      "compressed": -0.616,
+      "padded": -0.533
+    },
+    "context_length_effect": -0.2447,
+    "multistep_process_effect": -0.1618,
+    "interaction_pvalues": {
+      "compressed": 0.000674,
+      "padded": 0.023111
+    },
+    "n": 5625,
+    "driver": "intrinsic per-step compounding (no regime flattening)"
+  },
+  "capability_scaling": {
+    "pearson_r_vs_log10params": 0.375,
+    "r_perstep_by_model": [
+      {
+        "model": "llama1b",
+        "params_b": 1.2,
+        "r_direct": 0.1606
+      },
+      {
+        "model": "qwen7b",
+        "params_b": 7.6,
+        "r_direct": 0.5966
+      },
+      {
+        "model": "llama8b",
+        "params_b": 8.0,
+        "r_direct": 0.6439
+      },
+      {
+        "model": "llama70b",
+        "params_b": 70.0,
+        "r_direct": 0.6065
+      },
+      {
+        "model": "deepseek",
+        "params_b": 671.0,
+        "r_direct": 0.7243
+      }
+    ]
+  },
+  "mechanism": {
+    "format_drift_rate": 0.2085,
+    "first_error_frac_mean": 0.342,
+    "perstep_acc_first_third": 0.492,
+    "perstep_acc_last_third": 0.346,
+    "hazard_accelerates": true
+  },
+  "benchmark_gap": {
+    "bench_horizon": 15,
+    "prod_horizon": 100,
+    "mean_p_bench": 0.2429,
+    "mean_p_prod": 0.0966,
+    "mean_per_step_r": 0.5464,
+    "projected_success_at_benchmark_horizons": {
+      "GAIA": 0.3124,
+      "WebArena": 0.2429,
+      "tau-bench": 0.2133,
+      "SWE-bench": 0.1751,
+      "OSWorld": 0.1751,
+      "TheAgentCompany": 0.0966
+    }
+  }
+}

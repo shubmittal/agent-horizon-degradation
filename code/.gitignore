@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+.cache/
+*.ipynb_checkpoints
+# NOTE: results/raw/ IS committed on purpose — it is the released dataset.

@@ -1,0 +1,17 @@
+# secrets — never commit
+code/.env
+.env
+
+# python caches / build
+**/__pycache__/
+*.pyc
+*.pyo
+code/.cache/
+
+# internal, not for the public repo (kept locally)
+.brief/
+submission/
+
+# os cruft
+.DS_Store
+Thumbs.db
