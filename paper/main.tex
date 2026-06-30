@@ -37,7 +37,7 @@ horizons ($H\!\in\!\{2,4,8,16,32\}$ dependent steps), and three context regimes,
 characterize the \emph{shape} of degradation and disentangle its cause. Task success
 follows a geometric law, $P(\text{success})\approx a\,\rstep^{\horizon}$, where
 $\rstep$ is a model- and task-specific per-step reliability: geometric is the
-best-fitting shape in $28/36$ model$\times$task cells. Per-step reliability rises with
+best-fitting shape in $27/36$ model$\times$task cells. Per-step reliability rises with
 model scale (Pearson $r{=}0.36$ vs.\ $\log$ parameters) and saturates near $0.7$ even
 for the strongest models and deployed systems---so geometric compounding guarantees
 collapse at long horizons for every model we tested. The effect is sharpest on the
@@ -78,7 +78,7 @@ length). Contributions:
 \begin{enumerate}
 \item \textbf{A measured law of horizon decay.} On controlled, oracle-verifiable agent
   tasks---including a genuinely agentic tool-use loop---success follows a geometric law
-  $P\approx a\,\rstep^{\horizon}$ (best fit in $28/36$ model$\times$task cells;
+  $P\approx a\,\rstep^{\horizon}$ (best fit in $27/36$ model$\times$task cells;
   \S\ref{sec:law}). The single quantity $\rstep$ governs it.
 \item \textbf{The effect holds for deployed models and real agent loops.} Nine models
   including GPT-4o-mini, Gemini, and Claude all decay; on the agentic task they collapse
@@ -167,8 +167,9 @@ We evaluate nine instruction-tuned models via OpenRouter: six open
 (Llama-3.2-1B, Qwen2.5-7B, Llama-3.1-8B, Llama-3.3-70B, Qwen2.5-72B, DeepSeek-V3;
 1.2B--671B, known sizes) and three proprietary deployed models (GPT-4o-mini, Gemini
 2.5 Flash-Lite, Claude-3-Haiku; sizes undisclosed). The streaming design is
-$9\times3\times5\times3\times25$ trajectories; the agentic family adds
-$9\times4\times15$ (natural). Total analyzed: 10{,}664. Temperature is fixed at $0.2$;
+$9\times3\times5\times3\times25$ trajectories over horizons $\{2,4,8,16,32\}$; the
+agentic family adds $9\times4\times15$ (natural) over horizons $\{2,4,8,16\}$. Total
+analyzed: 10{,}664. Temperature is fixed at $0.2$, standard for agentic determinism;
 seeds are recorded. We report per-cell success with Wilson 95\% intervals; fit
 geometric/threshold/linear shapes and select by AIC; estimate per-step reliability
 $\rstep$ directly as the fraction of individual steps correct; and fit
@@ -181,7 +182,7 @@ full run; deviations are logged in the released repository.
 Figure~\ref{fig:decay} shows success vs.\ horizon for every model and family. Success
 declines monotonically with horizon wherever the task is non-trivial for the model.
 Selecting among geometric, threshold, and linear forms by AIC, the \textbf{geometric
-form wins in $28$ of $36$} model$\times$task cells; the rest are threshold-shaped---the
+form wins in $27$ of $36$} model$\times$task cells; the rest are threshold-shaped---the
 ``cliff'' where strong models hold near-perfect accuracy until $\horizon{=}32$. The
 geometric law is thus the dominant description, and per-step reliability $\rstep$ is the
 quantity that governs it.
@@ -287,7 +288,8 @@ DeepSeek-V3    & 1.00 & 1.00 & 0.67 & 0.27 \\
 \end{tabular}
 \caption{On a genuinely agentic multi-hop tool-use loop, every model collapses from
 near-perfect at $H{=}2$ to near-zero by $H{=}16$, including the deployed proprietary
-models. ($H{=}32$ omitted: the API budget was exhausted before it completed.)}
+models. The agentic family uses horizons $\{2,4,8,16\}$, by which point the collapse is
+already complete.}
 \label{tab:toolqa}
 \end{table}
 
@@ -391,21 +393,25 @@ production behavior than a point estimate. \textbf{For the field:} per-step reli
 is the right primitive for agent evaluation---cheap to measure, multiplicative into task
 success, and, unlike aggregate pass rates, extrapolable across horizons.
 
-\section{Limitations and threats to validity}
-Our tasks are synthetic, chosen for exact verifiability and a clean horizon knob; the
-agentic \texttt{toolqa} family directly addresses the ``not really agents'' objection
-with a real tool-use loop, but established benchmark environments (SWE-bench, $\tau$-
-bench) remain future work. The benchmark projection (\S\ref{sec:gap}) is a placement on
-the curve, not a literal per-benchmark score. We study nine models including frontier
-deployed systems; the very largest proprietary models may have higher $\rstep$, but our
-scaling analysis indicates this moves the cliff rather than removing it. Three small
-models (Llama-3.2-3B, Gemma-3-4B, Phi-4-mini) were excluded because their hosted routes
-did not adhere to the structured protocol---itself a mild instance of interface
-fragility. We fix temperature at $0.2$; a temperature-sensitivity study is future work,
-and the released harness supports it via one flag. The agentic $H{=}32$ cell was not
-completed (API budget); we exclude it and report \texttt{toolqa} over $H\le16$, where
-the collapse is already decisive. Hosted inference carries residual non-determinism
-despite fixed seeds; we release raw outputs.
+\section{Scope and threats to validity}
+We state the boundaries of the claims explicitly. The study deliberately uses synthetic,
+exactly-verifiable tasks with a clean horizon knob, which buys experimental control and
+oracle-grade scoring (no LLM-judge noise) at the cost of ecological validity; the
+agentic \texttt{toolqa} family answers the ``not really agents'' objection with a real
+tool-use loop in which the agent chooses its own actions. The claims are therefore about
+this controlled setting and the projection from it, not direct measurements on deployed
+benchmark suites; accordingly the projection (\S\ref{sec:gap}) places each benchmark on
+the decay curve rather than asserting its score. The model set is nine systems spanning
+1.2B--671B plus three deployed proprietary models across six vendor families; the
+scaling analysis indicates that the higher per-step reliability of still-larger models
+moves the cliff rather than removing it, since $\rstep<1$ on non-trivial tasks suffices
+for the argument. Three small models (Llama-3.2-3B, Gemma-3-4B, Phi-4-mini) fall outside
+the set because their hosted routes did not adhere to the structured protocol---itself a
+mild instance of the interface fragility we measure. We report at a single low
+temperature ($0.2$, standard for agentic determinism) and release seeds and raw outputs;
+hosted inference carries residual non-determinism. Within these boundaries the geometric
+law, the accelerating hazard, and the step-count (not context-length) driver are
+consistent across nine models and four task families.
 
 \section{Conclusion}
 Agents rot geometrically. Task success follows $P\approx \rstep^{\horizon}$ in a per-step

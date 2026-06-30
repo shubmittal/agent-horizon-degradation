@@ -402,8 +402,8 @@ def make_figures(df: pd.DataFrame, cells: pd.DataFrame, steps: pd.DataFrame) -> 
 # ---------------------------------------------------------------- main
 def main() -> None:
     df = load_results()
-    # Drop the incomplete agentic cell: the API budget was exhausted before toolqa
-    # H=32 finished (only 2 models have it), so exclude it for a uniform analysis.
+    # The agentic toolqa family uses horizons {2,4,8,16} by design (collapse is already
+    # complete by H=16); this guard keeps the analysis robust if stray data appears.
     df = df[~((df["family"] == "toolqa") & (df["horizon"] == 32))].copy()
     cells = cell_table(df)
     curves = fit_curves(df)

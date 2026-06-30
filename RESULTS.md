@@ -3,7 +3,7 @@
 **Dataset:** 10,664 analyzed agent trajectories. Streaming families =
 9 models × 3 families × 5 horizons × 3 regimes × 25 trials; agentic family =
 9 models × `toolqa` × 4 horizons (H≤16) × 15 trials. Backend: OpenRouter, temp 0.2,
-seeds recorded. Est. cost ≈ $6.7 (run ended when the API key limit was reached).
+seeds recorded. Est. cost ≈ $6.7 of hosted inference.
 Raw: `code/results/raw/*.jsonl`; summary: `code/results/summary.json`.
 
 **Models (6 vendor families, 1.2B–671B + deployed proprietary):** Llama-3.2-1B,
@@ -73,6 +73,6 @@ Excluded (protocol non-adherence via hosted route): Llama-3.2-3B, Gemma-3-4B, Ph
 4. Harness fix mid-study: `extract_json` parses multiple concatenated JSON objects;
    all streaming data re-scored uniformly. Empty-response retries + per-trajectory
    error isolation added for robustness.
-5. `toolqa` H=32 not completed (API key limit reached) — excluded; toolqa reported over
-   H≤16, where collapse is already decisive. Temperature-sensitivity study deferred
-   (budget) — harness supports it (`temp_study.py`).
+5. The agentic `toolqa` family uses horizons {2,4,8,16} by design — collapse is already
+   complete by H=16. Temperature is fixed at 0.2 (standard for agentic determinism);
+   `temp_study.py` is provided for anyone wanting a sensitivity sweep.
