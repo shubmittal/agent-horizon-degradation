@@ -1,0 +1,43 @@
+CODE AND DATA AVAILABILITY
+==========================
+
+Paper: How Fast Do Agents Rot? An Empirical Study of Long-Horizon Degradation
+       in LLM Agents
+
+All code, prompts, random seeds, the complete raw dataset, and the analysis
+scripts that reproduce every figure and number in the paper are publicly
+available at:
+
+    https://github.com/shubmittal/agent-horizon-degradation
+
+What is in the repository
+-------------------------
+  code/            The experiment harness:
+                     - tasks.py     three synthetic, oracle-verifiable agent
+                                    task families (ledger / refchain / cipher)
+                     - runner.py    the agent loop, the three context regimes,
+                                    checkpointing, and the sweep command
+                     - llm.py       the model client (OpenAI-compatible)
+                     - analysis.py  curve fitting, the step-vs-context analysis,
+                                    capability scaling, and figure generation
+                     - results/     the FULL dataset: summary.json, summary
+                                    tables, and 45 raw trajectory files
+                                    (5,625 trajectories total)
+  figures/         The three figures used in the paper
+  paper/           The manuscript (Word + LaTeX) and the bibliography
+  DESIGN.md        The pre-registered hypotheses, design, and analysis plan
+  RESULTS.md       An evidence trail mapping every reported number to its source
+  README.md        Step-by-step reproduction instructions
+
+How to reproduce
+----------------
+  1. pip install -r code/requirements.txt
+  2. Regenerate all tables and figures from the released raw data, at no cost:
+         cd code && python analysis.py
+  3. (Optional) Re-run the full study against any OpenAI-compatible endpoint:
+         cp code/.env.example code/.env   # add an API key
+         cd code && python runner.py --trials 25 && python analysis.py
+     The sweep is resumable and cached; the full run is about 5,625 trajectories.
+
+Sanity checks that need no API key:
+     cd code && python tasks.py && python test_harness.py

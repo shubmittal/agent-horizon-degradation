@@ -65,12 +65,20 @@ _VLLM_MODELS = [
 # across three vendor families. (Llama-3.2-3B and Gemma-3-4B / Phi-4-mini were
 # evaluated but excluded: their OpenRouter routes do not adhere to the protocol —
 # empty tool-call responses or conversational replies — see DEVIATIONS.)
+_NAN = float("nan")
 _OPENROUTER_MODELS = [
+    # Open models, known parameter counts -> the capability-scaling ladder.
     Model("llama1b",  "meta-llama/llama-3.2-1b-instruct",  1.2,  "Meta",     0.005, 0.01),
     Model("qwen7b",   "qwen/qwen-2.5-7b-instruct",         7.6,  "Alibaba",  0.04,  0.10),
     Model("llama8b",  "meta-llama/llama-3.1-8b-instruct",  8.0,  "Meta",     0.02,  0.03),
     Model("llama70b", "meta-llama/llama-3.3-70b-instruct", 70.0, "Meta",     0.12,  0.30),
+    Model("qwen72b",  "qwen/qwen-2.5-72b-instruct",        72.0, "Alibaba",  0.36,  0.40),
     Model("deepseek", "deepseek/deepseek-chat",            671.0,"DeepSeek",  0.30,  0.88),
+    # Proprietary deployed models (parameter counts undisclosed -> NaN; included for
+    # generality and the law, excluded from the params-scaling correlation).
+    Model("gpt4omini","openai/gpt-4o-mini",                _NAN, "OpenAI",    0.15,  0.60),
+    Model("gemini",   "google/gemini-2.5-flash-lite",      _NAN, "Google",    0.10,  0.40),
+    Model("haiku",    "anthropic/claude-3-haiku",          _NAN, "Anthropic", 0.25,  1.25),
 ]
 
 _ACTIVE = _OPENROUTER_MODELS if BACKEND == "openrouter" else _VLLM_MODELS

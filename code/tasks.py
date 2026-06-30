@@ -257,8 +257,90 @@ class CipherTask(Task):
         return str(s).strip().lower()
 
 
+# ----------------------------------------------------------------- toolqa (agentic)
+class ToolQATask:
+    """A genuinely agentic multi-hop tool-use task: the agent must call a tool to
+    traverse a hidden chain it CANNOT pre-plan (each hop's target is only revealed by
+    inspecting the previous node), then report the key at the end. This is a real
+    ReAct loop -- the agent chooses its own actions -- unlike the streaming families.
+
+    Protocol: each turn the agent replies with ONE JSON object, either
+      {"tool": "inspect", "args": {"node": "<id>"}}   -> observes {"next","key"}
+      {"answer": <int>}                                 -> ends the episode
+    Goal: from the start node, follow "next" exactly H times, then report that node's
+    "key". Correct traversal requires H+1 dependent inspections; one wrong hop yields
+    the wrong key (compounding). Distractor nodes make guessing infeasible.
+    """
+    family = "toolqa"
+
+    def __init__(self, horizon, seed, nodes, start, answer, chain):
+        self.horizon = horizon
+        self.seed = seed
+        self.nodes = nodes            # id -> {"next": id, "key": int}
+        self.start = start
+        self.answer = answer          # key at depth H from start
+        self.chain = chain            # the correct node sequence (for diagnostics)
+        self.max_turns = horizon + 6  # generous budget above the H+1 needed
+
+    @classmethod
+    def generate(cls, horizon, seed):
+        rng = random.Random(seed)
+        n_nodes = max(2 * horizon + 5, 14)
+        ids = [f"n{i}" for i in range(n_nodes)]
+        rng.shuffle(ids)
+        chain = ids[:horizon + 1]                      # c0..cH, the correct path
+        nodes = {}
+        for i, nid in enumerate(ids):
+            nodes[nid] = {"next": rng.choice([x for x in ids if x != nid]),
+                          "key": rng.randint(100, 999)}
+        for i in range(horizon):                       # wire the correct chain
+            nodes[chain[i]]["next"] = chain[i + 1]
+        answer = nodes[chain[horizon]]["key"]
+        return cls(horizon, seed, nodes, chain[0], answer, chain)
+
+    def system_prompt(self) -> str:
+        total = self.horizon + 1
+        return (
+            "You are an agent that answers a question by calling a tool.\n"
+            "There is a network of nodes; inspecting a node reveals its \"key\" and its "
+            "\"next\" node. You must walk a chain.\n\n"
+            "PROCEDURE:\n"
+            f'  1. Inspect the start node "{self.start}".\n'
+            "  2. Then inspect the \"next\" node it returned. Then inspect that node's "
+            "\"next\", and so on.\n"
+            f"  3. Inspect {total} nodes IN TOTAL (the start node plus {self.horizon} "
+            "more along the chain).\n"
+            f'  4. Report the "key" of the {total}th (last) node you inspect.\n\n'
+            "On every turn reply with EXACTLY ONE JSON object and nothing else, either:\n"
+            '  {"tool": "inspect", "args": {"node": "<id>"}}   to read a node, or\n'
+            '  {"answer": <integer>}                            to give the final key.\n'
+            f"Track how many nodes you have inspected; answer only after the {total}th."
+        )
+
+    def first_user(self) -> str:
+        return (f'Start node: "{self.start}". Inspect {self.horizon + 1} nodes along the '
+                f'"next" chain, then answer with the last node\'s key. Begin.')
+
+    def tool_response(self, action: dict):
+        """Return (observation_text, done, success). done/success only on answer."""
+        if "answer" in action:
+            try:
+                ok = int(action["answer"]) == int(self.answer)
+            except (TypeError, ValueError):
+                ok = False
+            return ("", True, ok)
+        if action.get("tool") == "inspect":
+            node = str(action.get("args", {}).get("node", ""))
+            if node in self.nodes:
+                return (json.dumps(self.nodes[node]), False, False)
+            return (json.dumps({"error": f"no such node {node!r}"}), False, False)
+        return (json.dumps({"error": "unrecognized action"}), False, False)
+
+
 # ----------------------------------------------------------------- registry
-_FAMILIES = {"ledger": LedgerTask, "refchain": RefchainTask, "cipher": CipherTask}
+_FAMILIES = {"ledger": LedgerTask, "refchain": RefchainTask, "cipher": CipherTask,
+             "toolqa": ToolQATask}
+AGENTIC_FAMILIES = {"toolqa"}
 
 
 def make_task(family: str, horizon: int, trial: int) -> Task:
@@ -269,6 +351,15 @@ def make_task(family: str, horizon: int, trial: int) -> Task:
 
 if __name__ == "__main__":  # quick self-test of the oracles
     for fam in _FAMILIES:
+        if fam in AGENTIC_FAMILIES:
+            for H in (2, 4, 8):                       # toolqa: verify the chain oracle
+                t = make_task(fam, H, 0)
+                cur = t.start
+                for _ in range(H):
+                    cur = t.nodes[cur]["next"]
+                assert t.nodes[cur]["key"] == t.answer
+                print(f"{fam} H={H}: start={t.start} -> chain len {len(t.chain)} A={t.answer}")
+            continue
         for H in (2, 4, 8):
             t = make_task(fam, H, 0)
             assert len(t.instructions) == H == len(t.states)

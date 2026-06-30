@@ -50,6 +50,10 @@ BENCHMARK_HORIZONS = {
 BENCH_HORIZON = 15      # representative bounded-benchmark task length (steps)
 PROD_HORIZON = 100      # representative production agent horizon (steps)
 
+# Agentic families run only the natural regime and have no per-step state, so they
+# enter the decay-law fits but not the regime-contrast disentangling or per-step hazard.
+AGENTIC_FAMILIES = {"toolqa"}
+
 
 # ---------------------------------------------------------------- load
 def load_results() -> pd.DataFrame:
@@ -246,7 +250,7 @@ def disentangle(df: pd.DataFrame) -> dict:
                                               invariant to presentation.
     """
     d = df.copy()
-    d = d[d["horizon"] > 0].copy()
+    d = d[(d["horizon"] > 0) & (~d["family"].isin(AGENTIC_FAMILIES))].copy()
     d["log2H"] = np.log2(d["horizon"].astype(float))
     base = [r for r in ["natural", "compressed", "padded"] if r in set(d["regime"])]
     d["regime"] = pd.Categorical(d["regime"], categories=base, ordered=False)
@@ -322,6 +326,7 @@ def make_figures(df: pd.DataFrame, cells: pd.DataFrame, steps: pd.DataFrame) -> 
     import matplotlib.pyplot as plt
 
     families = sorted(df["family"].unique())
+    families_reg = [f for f in families if f not in AGENTIC_FAMILIES]  # regime-contrast subset
     models = sorted(df["model"].unique())
 
     # Fig 1: decay curves (natural) per family, one line per model, Wilson CIs.
@@ -349,9 +354,9 @@ def make_figures(df: pd.DataFrame, cells: pd.DataFrame, steps: pd.DataFrame) -> 
     plt.close(fig)
 
     # Fig 2: regime comparison (the disentangling), pooled across models.
-    fig, axes = plt.subplots(1, len(families), figsize=(5 * len(families), 4),
+    fig, axes = plt.subplots(1, len(families_reg), figsize=(5 * len(families_reg), 4),
                              squeeze=False)
-    for ax, fam in zip(axes[0], families):
+    for ax, fam in zip(axes[0], families_reg):
         sub = cells[cells["family"] == fam]
         for reg in ["natural", "compressed", "padded"]:
             s = (sub[sub["regime"] == reg].groupby("horizon")["rate"]
@@ -373,9 +378,9 @@ def make_figures(df: pd.DataFrame, cells: pd.DataFrame, steps: pd.DataFrame) -> 
 
     # Fig 3: per-step accuracy vs step index (natural).
     if not steps.empty:
-        fig, axes = plt.subplots(1, len(families), figsize=(5 * len(families), 4),
+        fig, axes = plt.subplots(1, len(families_reg), figsize=(5 * len(families_reg), 4),
                                  squeeze=False)
-        for ax, fam in zip(axes[0], families):
+        for ax, fam in zip(axes[0], families_reg):
             sub = steps[(steps["family"] == fam) & (steps["regime"] == "natural")]
             for model in models:
                 s = sub[sub["model"] == model].sort_values("step")
@@ -397,6 +402,9 @@ def make_figures(df: pd.DataFrame, cells: pd.DataFrame, steps: pd.DataFrame) -> 
 # ---------------------------------------------------------------- main
 def main() -> None:
     df = load_results()
+    # Drop the incomplete agentic cell: the API budget was exhausted before toolqa
+    # H=32 finished (only 2 models have it), so exclude it for a uniform analysis.
+    df = df[~((df["family"] == "toolqa") & (df["horizon"] == 32))].copy()
     cells = cell_table(df)
     curves = fit_curves(df)
     rel = perstep_reliability(df)

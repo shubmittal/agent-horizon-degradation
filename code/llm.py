@@ -138,6 +138,10 @@ async def _raw_call(model_route: str, messages: list[dict], params: dict) -> dic
         if transient:
             raise TransientLLMError(str(e)) from e
         raise
+    # Some providers intermittently return a 200 with null/empty choices (overload,
+    # moderation, or an error wrapped in the body). Treat as transient and retry.
+    if not getattr(resp, "choices", None):
+        raise TransientLLMError("empty choices in response")
     choice = resp.choices[0]
     usage = resp.usage
     return {

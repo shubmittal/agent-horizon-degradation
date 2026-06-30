@@ -9,18 +9,19 @@ raw trajectories.
 (also `paper/main.tex` + `paper/references.bib`).
 **Pre-registration:** [`DESIGN.md`](DESIGN.md). **Evidence trail:** [`RESULTS.md`](RESULTS.md).
 
-## Headline findings (N = 5,625 trajectories; 5 models, 1.2B–671B)
-- Task success follows a **geometric law**, `P(success) ≈ a·r^H` (best fit in 10/15
+## Headline findings (N = 10,664 trajectories; 9 models 1.2B–671B + deployed proprietary)
+- Task success follows a **geometric law**, `P(success) ≈ a·r^H` (best fit in 28/36
   model×task cells), where `r` is a per-step reliability.
-- `r` **rises with model scale** (Pearson +0.38 vs. log-params) but never reaches 1 on
-  non-trivial tasks → geometric compounding guarantees long-horizon collapse at every
-  scale.
-- Degradation **accelerates** within a trajectory (per-step accuracy 0.49 → 0.35).
-- The driver is **step count, not context length**: bounding context *and* one-shot
-  execution both *steepen* decay vs. the natural agent loop (p < 0.05). Naive context
-  truncation backfires.
+- `r` **rises with model scale** (Pearson +0.36 vs. log-params) and saturates near 0.7
+  for strong open and deployed models — never reaching 1 on non-trivial tasks, so
+  geometric compounding guarantees long-horizon collapse at every scale.
+- **On a genuine agentic tool-use loop (`toolqa`), every model collapses from ~1.0 at
+  H=2 to near 0 by H=16** — including GPT-4o-mini, Gemini, and Claude.
+- Degradation **accelerates** within a trajectory (per-step accuracy 0.58 → 0.44).
+- The driver is **step count, not context length**: bounding context *steepens* decay
+  (p = 3×10⁻⁶) — the opposite of lost-in-the-middle. Naive context truncation backfires.
 - **Benchmark gap:** projecting measured `r` onto benchmark horizons gives success
-  0.31 (GAIA-length) → 0.18 (SWE-bench-length) → 0.10 (100-step production).
+  0.42 (GAIA-length) → 0.30 (SWE-bench-length) → 0.24 (100-step production).
 
 ## Repository layout
 ```
@@ -60,18 +61,20 @@ AGENT_ROT_BACKEND=openrouter python runner.py --trials 25
 AGENT_ROT_BACKEND=openrouter python analysis.py   # writes results/ + figures/
 ```
 The sweep is **resumable** (checkpointed per `(model,family,regime,horizon,seed)`) and
-**cached** (re-runs reuse stored responses). Full study ≈ 5,625 trajectories, ≈ $3 of
-hosted inference. Temperature 0.2; seeds recorded; residual provider non-determinism
-noted in the paper.
+**cached** (re-runs reuse stored responses). Full study ≈ 10,664 trajectories, ≈ $6.7 of
+hosted inference. The agentic family is run separately:
+`python runner.py --families toolqa --regimes natural --trials 15`. Temperature 0.2;
+seeds recorded; residual provider non-determinism noted in the paper.
 
 To reproduce the analysis/figures **without spending anything**, run step 2's
 `analysis.py` directly on the released `code/results/raw/*.jsonl`.
 
 ## Models
-Llama-3.2-1B, Qwen2.5-7B, Llama-3.1-8B, Llama-3.3-70B (Meta/Alibaba), DeepSeek-V3 —
-spanning 1.2B–671B across three vendor families. Three smaller candidate models were
-excluded for not adhering to the structured protocol via their hosted routes (see
-`DESIGN.md` / `RESULTS.md`).
+Open (1.2B–671B): Llama-3.2-1B, Qwen2.5-7B, Llama-3.1-8B, Llama-3.3-70B, Qwen2.5-72B,
+DeepSeek-V3. Proprietary deployed: GPT-4o-mini, Gemini-2.5-Flash-Lite, Claude-3-Haiku.
+Six vendor families total. Three smaller candidates (Llama-3.2-3B, Gemma-3-4B,
+Phi-4-mini) were excluded for not adhering to the structured protocol via their hosted
+routes (see `RESULTS.md`).
 
 ## License / data
 Released for reproducibility. Raw trajectories contain task instructions, model

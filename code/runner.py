@@ -23,7 +23,7 @@ from config import (FULL_TRIALS, HORIZONS, MAX_COMPLETION_TOKENS, MAX_TURNS_SLAC
                     MODELS, PILOT_TRIALS, RAW_DIR, REGIMES, TASK_FAMILIES,
                     TEMPERATURE, TOP_P)
 from llm import METER, chat
-from tasks import make_task
+from tasks import AGENTIC_FAMILIES, make_task
 
 _WRITE_LOCK = asyncio.Lock()
 
@@ -94,17 +94,56 @@ def _context(history: list[dict], compressed: bool) -> list[dict]:
 
 # --------------------------------------------------------------- one trajectory
 async def run_trajectory(model_key: str, family: str, horizon: int, regime: str,
-                         trial: int) -> dict:
+                         trial: int, temperature: float | None = None) -> dict:
     task = make_task(family, horizon, trial)
     rec = {"model": model_key, "family": family, "horizon": horizon,
            "regime": regime, "trial": trial, "seed": task.seed}
-    gen = dict(temperature=TEMPERATURE, top_p=TOP_P,
-               max_tokens=MAX_COMPLETION_TOKENS, seed=task.seed)
+    gen = dict(temperature=TEMPERATURE if temperature is None else temperature,
+               top_p=TOP_P, max_tokens=MAX_COMPLETION_TOKENS, seed=task.seed)
 
+    if family in AGENTIC_FAMILIES:
+        return await _run_agentic(task, model_key, rec, gen)
     if regime == "padded":
         return await _run_oneshot(task, model_key, rec, gen)
     return await _run_interactive(task, model_key, rec, gen,
                                   compressed=(regime == "compressed"))
+
+
+async def _run_agentic(task, model_key, rec, gen) -> dict:
+    """Agent-driven ReAct loop: the model chooses tool calls until it answers."""
+    messages = [{"role": "system", "content": task.system_prompt()},
+                {"role": "user", "content": task.first_user()}]
+    tool_calls, malformed, n_turns, latency = 0, 0, 0, 0.0
+    prompt_toks, finish, compl_toks = [], [], 0
+    success, ans = False, None
+
+    for _ in range(task.max_turns):
+        out = await chat(model_key, messages, **gen)
+        messages.append({"role": "assistant", "content": out["content"]})
+        prompt_toks.append(out["prompt_tokens"]); compl_toks += out["completion_tokens"]
+        finish.append(out["finish_reason"]); latency += out.get("latency_s", 0.0)
+        n_turns += 1
+
+        action = extract_json(out["content"], "answer") or extract_json(out["content"], "tool")
+        if action is None:
+            malformed += 1
+            messages.append({"role": "user", "content":
+                "Invalid format. Reply with exactly one JSON object: a tool call or an answer."})
+            continue
+        obs, done, ok = task.tool_response(action)
+        if done:
+            ans = action.get("answer"); success = ok; break
+        tool_calls += 1
+        messages.append({"role": "user", "content": obs})
+
+    rec.update(success=success, final_answer=ans, gold=task.answer, n_turns=n_turns,
+               per_step_correct=[], first_error_step=None, malformed_count=malformed,
+               tool_calls=tool_calls,
+               mean_prompt_tokens=round(sum(prompt_toks) / len(prompt_toks), 1) if prompt_toks else 0,
+               max_prompt_tokens=max(prompt_toks) if prompt_toks else 0,
+               completion_tokens=compl_toks, finish_reasons=finish,
+               latency_s=round(latency, 2))
+    return rec
 
 
 async def _run_interactive(task, model_key, rec, gen, *, compressed: bool) -> dict:
@@ -186,8 +225,14 @@ def _completed(model_key: str, family: str, regime: str) -> set[tuple[int, int]]
     return done
 
 
-async def _run_and_save(model_key, family, horizon, regime, trial) -> dict:
-    rec = await run_trajectory(model_key, family, horizon, regime, trial)
+async def _run_and_save(model_key, family, horizon, regime, trial) -> dict | None:
+    # Isolate failures: a trajectory that errors after retries is skipped (not written),
+    # so it is retried on the next resume and never kills the whole sweep.
+    try:
+        rec = await run_trajectory(model_key, family, horizon, regime, trial)
+    except Exception as e:  # noqa: BLE001
+        print(f"  [skip] {model_key}/{family}/{regime}/H{horizon}/t{trial}: {str(e)[:80]}")
+        return None
     async with _WRITE_LOCK:
         with _raw_path(model_key, family, regime).open("a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
